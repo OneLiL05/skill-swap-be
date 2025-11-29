@@ -1,13 +1,17 @@
 CREATE TABLE "category" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"name" varchar NOT NULL,
+	CONSTRAINT "category_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
 CREATE TABLE "city" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"name" varchar NOT NULL,
+	CONSTRAINT "city_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
 CREATE TABLE "job_skill" (

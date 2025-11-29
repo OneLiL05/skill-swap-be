@@ -1,6 +1,6 @@
 import type { AppInstance, FailureResponse } from '@/core/types/common.js'
 import { env } from '@/env.js'
-import { registerDependencies } from '@/infrastructure/parentDiConfig.js'
+import { registerDependencies } from '@/infrastructure/parent-di-config.js'
 import { diContainer, fastifyAwilixPlugin } from '@fastify/awilix'
 import fastifyCookie from '@fastify/cookie'
 import fastifyCors from '@fastify/cors'
@@ -67,7 +67,7 @@ export class App {
 		})
 
 		await this.app.register(scalarApiReference, {
-			routePrefix: '/api', // TODO: Change to your prefix
+			routePrefix: '/api',
 			configuration: {
 				theme: 'deepSpace',
 				metaData: {

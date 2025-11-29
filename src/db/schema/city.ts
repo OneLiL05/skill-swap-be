@@ -13,6 +13,7 @@ export const cityTable = pgTable('city', (t) => ({
 		.defaultNow()
 		.notNull()
 		.$onUpdateFn(() => new Date()),
+	name: t.varchar().notNull().unique(),
 }))
 
 export const cityTableRelations = relations(cityTable, ({ many }) => ({

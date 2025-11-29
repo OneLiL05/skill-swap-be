@@ -19,27 +19,27 @@ DECLARE
     v_skill_id UUID;
 BEGIN
     IF p_salary < 0 THEN
-        RAISE EXCEPTION 'NEGATIVE_SALARY: Salary cannot be negative. Provided value: %', p_salary
+        RAISE EXCEPTION 'Salary cannot be negative. Provided value: %', p_salary
             USING ERRCODE = '22023';
     END IF;
 
     IF p_salary < 100 THEN
-        RAISE EXCEPTION 'LOW_SALARY: Salary is too low. Minimum salary is 100. Provided value: %', p_salary
+        RAISE EXCEPTION 'Salary is too low. Minimum salary is 100. Provided value: %', p_salary
             USING ERRCODE = '22023';
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM city WHERE id = p_city_id) THEN
-        RAISE EXCEPTION 'CITY_NOT_FOUND: City with id % does not exist', p_city_id
+        RAISE EXCEPTION 'City with id % does not exist', p_city_id
             USING ERRCODE = '22023';
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM position WHERE id = p_position_id) THEN
-        RAISE EXCEPTION 'POSITION_NOT_FOUND: Position with id % does not exist', p_position_id
+        RAISE EXCEPTION 'Position with id % does not exist', p_position_id
             USING ERRCODE = '22023';
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM category WHERE id = p_category_id) THEN
-        RAISE EXCEPTION 'CATEGORY_NOT_FOUND: Category with id % does not exist', p_category_id
+        RAISE EXCEPTION 'Category with id % does not exist', p_category_id
             USING ERRCODE = '22023';
     END IF;
 
@@ -95,16 +95,15 @@ RETURNS TABLE (
     job_id UUID,
     job_name VARCHAR,
     job_description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE,
     salary NUMERIC,
     employment_type VARCHAR,
     work_location VARCHAR,
     status VARCHAR,
-    city_id UUID,
-    position_id UUID,
     position_name VARCHAR,
-    category_id UUID,
-    skills_count BIGINT,
-    skill_names TEXT
+    category_name VARCHAR,
+    city_name VARCHAR,
+    skills JSONB
 )
 LANGUAGE plpgsql
 AS $$
@@ -114,18 +113,27 @@ BEGIN
     j.id AS job_id,
     j.name AS job_name,
     j.description AS job_description,
+    j.created_at,
     j.salary,
     j.employment_type,
     j.work_location,
     j.status,
-    j.city_id,
-    j.position_id,
     p.name AS position_name,
-    j.category_id,
-    COUNT(DISTINCT js.skill_id) AS skills_count,
-    STRING_AGG(DISTINCT s.name, ', ' ORDER BY s.name) AS skill_names
+    c.name AS category_name,
+    ci.name AS city_name,
+    COALESCE(
+      JSONB_AGG(
+        JSONB_BUILD_OBJECT(
+          'skill_id', s.id,
+          'skill_name', s.name
+        )
+      ) FILTER (WHERE s.id IS NOT NULL),
+      '[]'::JSONB
+    ) AS skills
   FROM job j
   LEFT JOIN position p ON j.position_id = p.id
+  LEFT JOIN category c ON j.category_id = c.id
+  LEFT JOIN city ci ON j.city_id = ci.id
   LEFT JOIN job_skill js ON j.id = js.job_id
   LEFT JOIN skill s ON js.skill_id = s.id
   WHERE
@@ -136,8 +144,8 @@ BEGIN
     AND (p_position_id IS NULL OR j.position_id = p_position_id)
   GROUP BY
     j.id, j.name, j.description, j.salary, j.employment_type,
-    j.work_location, j.status, j.city_id, j.position_id,
-    p.name, j.category_id
+    j.work_location, j.status, j.city_id, j.position_id, j.category_id,
+    p.name, c.name, ci.name
   ORDER BY j.created_at DESC;
 END;
 $$;
@@ -155,11 +163,9 @@ RETURNS TABLE (
   eligibility VARCHAR,
   created_at TIMESTAMP WITH TIME ZONE,
   position_name VARCHAR,
-  category_id UUID,
-  city_id UUID,
-  skill_id UUID,
-  skill_name VARCHAR,
-  skill_level VARCHAR
+  category_name VARCHAR,
+  city_name VARCHAR,
+  skills JSONB
 )
 LANGUAGE plpgsql
 AS $$
@@ -177,22 +183,34 @@ BEGIN
     j.eligibility,
     j.created_at,
     p.name AS position_name,
-    j.category_id,
-    j.city_id,
-    s.id AS skill_id,
-    s.name AS skill_name,
-    s.level AS skill_level
+    c.name as category_name,
+    ci.name as city_name,
+    COALESCE(
+      JSONB_AGG(
+        JSONB_BUILD_OBJECT(
+          'skill_id', s.id,
+          'skill_name', s.name
+        )
+      ) FILTER (WHERE s.id IS NOT NULL),
+      '[]'::JSONB
+    ) AS skills
   FROM job j
   LEFT JOIN position p ON j.position_id = p.id
+  LEFT JOIN category c ON j.category_id = c.id
+  LEFT JOIN city ci ON j.city_id = ci.id
   LEFT JOIN job_skill js ON j.id = js.job_id
   LEFT JOIN skill s ON js.skill_id = s.id
-  WHERE j.id = p_job_id;
+  WHERE j.id = p_job_id
+  GROUP BY
+    j.id, j.name, j.description, j.salary, j.cv_requirement, j.employment_type,
+    j.work_location, j.status, j.eligibility, j.created_at, j.city_id, j.position_id, j.category_id,
+    p.name, c.name, ci.name;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_category_statistics()
 RETURNS TABLE (
-  category_id UUID,
+  category_name VARCHAR,
   jobs_count BIGINT,
   avg_salary NUMERIC,
   min_salary NUMERIC,
@@ -203,7 +221,7 @@ AS $$
 BEGIN
   RETURN QUERY
   SELECT
-    c.id AS category_id,
+    c.name AS category_name,
     COUNT(j.id) AS jobs_count,
     ROUND(AVG(j.salary), 2) AS avg_salary,
     MIN(j.salary) AS min_salary,

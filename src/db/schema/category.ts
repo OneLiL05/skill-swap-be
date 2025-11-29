@@ -13,6 +13,7 @@ export const categoryTable = pgTable('category', (t) => ({
 		.defaultNow()
 		.notNull()
 		.$onUpdateFn(() => new Date()),
+	name: t.varchar().notNull().unique(),
 }))
 
 export const categoryTableRelations = relations(categoryTable, ({ many }) => ({
